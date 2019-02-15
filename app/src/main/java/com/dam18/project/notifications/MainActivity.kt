@@ -14,13 +14,19 @@ import java.util.*
 
 class MainActivity : AppCompatActivity() {
 
+
+    // para filtrar los logs
+    val TAG = "Servicio"
     // referencia de la base de datos
     private var database: DatabaseReference? = null
-    // para guardar los cambios de la base de datos
-    private var ultimoacceso: DataSnapshot? = null
     // Token del dispositivo. El token es el que identifica el dispositivo
     //en la base de datos
-    var FCMToken: String? = null
+    private var FCMToken: String? = null
+    // key unica creada automaticamente al añadir un child
+    lateinit var misDatos : Datos
+    lateinit var key: String
+    // para actualizar los datos necesito un hash map
+    val miHashMapChild = HashMap<String, Any>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -28,43 +34,83 @@ class MainActivity : AppCompatActivity() {
         setSupportActionBar(toolbar)
 
         // referencia a la base de datos del proyecto en firebase
-        database = FirebaseDatabase.getInstance().getReference()
+        database = FirebaseDatabase.getInstance().getReference("/dispositivos")
 
         // boton de la plantilla
         fab.setOnClickListener { view ->
             Snackbar.make(view, "Tiempo actualizado", Snackbar.LENGTH_LONG)
                     .setAction("Action", null).show()
+            Log.d(TAG,"Actualizando datos")
             // cada vez que le damos click actualizamos tiempo
-            database!!.child(FCMToken.toString()).setValue(Date())
+            misDatos.hora = Date()
+            // Creamos el hashMap en el objeto
+            misDatos.crearHashMapDatos()
+            // actualizamos la base de datosw
+            miHashMapChild.put(key.toString(),misDatos.miHashMapDatos)
+            // actualizamos el child
+            database!!.updateChildren(miHashMapChild)
         }
 
-        // Obtengo el token del dispositivo
-        try {
-            FCMToken = FirebaseInstanceId.getInstance().token
-            /** guardamos el token del dispositivo tiempo actual  */
-            database!!.child(FCMToken.toString()).setValue(Date())
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-
-        try {
-            FCMToken = FirebaseInstanceId.getInstance().token
-            /** Store this token to firebase database along with user id  */
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        Log.d("Servicio", FirebaseInstanceId.getInstance().token.toString())
-
-        // actualizo cada vez que se cambia el valor de la base de datos
-        database!!.child(FCMToken.toString()).addValueEventListener(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                val fecha = snapshot.getValue(Date().javaClass)
-                miText.text = fecha.toString()
+        // solo lo llamo cuando arranco la app
+        // evito que cuando se pasa por el onCreate(al darle la vuelta al mobil for example)
+        // vuelva a ejecutarse
+        if (savedInstanceState == null) {
+            try {
+                // Obtengo el token del dispositivo.
+                FCMToken = FirebaseInstanceId.getInstance().token
+                // creamos una entrada nueva en el child "dispositivos" con un key unico automatico
+                key = database!!.push().key!!
+                // guardamos el token, dispositivo, tiempo actual en la data class
+                misDatos = Datos(FCMToken.toString(),android.os.Build.MANUFACTURER+" "+android.os.Build.ID,Date())
+                // creamos el hash map
+                misDatos.crearHashMapDatos()
+                // guardamos los datos en el hash map para la key creada anteriormente
+                miHashMapChild.put(key.toString(), misDatos.miHashMapDatos)
+                // actualizamos el child
+                database!!.updateChildren(miHashMapChild)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                Log.d(TAG, "Error escribiendo datos ${e}")
             }
-            override fun onCancelled(databaseError: DatabaseError) {}
-        })
+        }
+
+        // inicializo el listener para los eventos de la basededatos
+        initListener()
+
     }
 
+
+    /**
+     * Listener para los distintos eventos de la base de datos
+     */
+    private fun initListener() {
+        val childEventListener = object : ChildEventListener {
+            override fun onChildRemoved(p0: DataSnapshot) {
+                Log.d(TAG, "Datos borrados: " + p0.key)
+            }
+
+            override fun onChildChanged(p0: DataSnapshot, p1: String?) {
+                Log.d(TAG, "Datos cambiados: " + (p0.getValue() as HashMap<*, *>).toString())
+            }
+
+            override fun onChildMoved(p0: DataSnapshot, p1: String?) {
+                Log.d(TAG, "Datos movidos")
+            }
+
+            override fun onChildAdded(p0: DataSnapshot, p1: String?) {
+                // onChildAdded() capturamos la key
+                Log.d(TAG, "Datos añadidos: " + p0.key)
+            }
+
+            override fun onCancelled(p0: DatabaseError) {
+                Log.d(TAG, "Error cancelacion")
+            }
+        }
+        // attach el evenListener a la basededatos
+        database!!.addChildEventListener(childEventListener)
+    }
+
+    //ESTE CODIGO LO DA LA PLANTILLA
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         // Inflate the menu; this adds items to the action bar if it is present.
         menuInflater.inflate(R.menu.menu_main, menu)
