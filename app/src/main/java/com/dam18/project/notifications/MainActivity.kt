@@ -49,6 +49,7 @@ class MainActivity : AppCompatActivity() {
             miHashMapChild.put(key.toString(),misDatos.miHashMapDatos)
             // actualizamos el child
             database!!.updateChildren(miHashMapChild)
+
         }
 
         // solo lo llamo cuando arranco la app
@@ -91,6 +92,18 @@ class MainActivity : AppCompatActivity() {
 
             override fun onChildChanged(p0: DataSnapshot, p1: String?) {
                 Log.d(TAG, "Datos cambiados: " + (p0.getValue() as HashMap<*, *>).toString())
+                /**val fecha = p0.getValue() as HashMap<*, *>
+                var dia = (fecha["hora"] as Date).day
+                var mes = (fecha["hora"] as Date).month
+                var año = (fecha["hora"] as Date).year
+                var hora = (fecha["hora"] as Date).hours
+                var min = (fecha["hora"] as Date).minutes
+                var seg = (fecha["hora"] as Date).seconds
+                val sb = StringBuilder()
+                sb.append(dia).append("/").append(mes).append("/").append(año)
+                        .append("/").append(" -- ").append(hora).append(":")
+                        .append(min).append(":").append(seg)
+                miText.text = sb.toString()*/
             }
 
             override fun onChildMoved(p0: DataSnapshot, p1: String?) {
